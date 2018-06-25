@@ -13,6 +13,10 @@ class Poly(object):
 
     """
     def __init__(self, parameters, basis):
+        try:
+            len(parameters)
+        except TypeError:
+            parameters = [parameters]
         self.parameters = parameters
         self.basis = basis
         self.dimensions = len(parameters)
@@ -209,9 +213,7 @@ class Poly(object):
             evals = self.getPolynomial(self.quadraturePoints)
             return Statistics(self.coefficients, self.basis, self.parameters, self.quadraturePoints, self.quadratureWeights, evals, max_sobol_order)
         else:
-            return Statistics(self.coefficients, self.basis, self.parameters, max_sobol_order=max_sobol_order)
-
-            
+            return Statistics(self.coefficients, self.basis, self.parameters, max_sobol_order=max_sobol_order)            
     def getQuadratureRule(self, options=None, number_of_points = None):
         """
         Generates quadrature points and weights.
@@ -243,7 +245,7 @@ class Poly(object):
                 p[:,i] = np.array(self.parameters[i].getSamples(m=default_number_of_points)).reshape((default_number_of_points,))
             return p, w
 
-        if options.lower() == 'tensor grid':
+        if options.lower() == 'tensor grid' or options.lower() == 'quadrature':
             p,w = self.getTensorQuadratureRule([i for i in self.basis.orders])
             return p,w
     def evaluatePolyFit(self, stackOfPoints):

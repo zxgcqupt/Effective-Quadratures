@@ -6,7 +6,7 @@ References:
     - Tiziano's paper on adaptive polynomial expansions
 """
 import numpy as np
-from scipy.special import gamma, betaln
+from scipy.special import gamma, betaln, erf
 from scipy.optimize import fsolve
 import distributions as analytical
 from utils import evalfunction
@@ -35,12 +35,12 @@ class Parameter(object):
         self.order = order
 
         if distribution is None:
-            self.param_type = 'Uniform'
+            self.param_type.lower() == 'uniform'
         else:
             self.param_type = distribution
 
         if lower is None and data is None:
-            if self.param_type is "Exponential":
+            if self.param_type.lower() == "exponential":
                 self.lower = 0.0
             else:
                 self.lower = -1.0
@@ -67,11 +67,11 @@ class Parameter(object):
         else:
             self.shape_parameter_B = shape_parameter_B
 
-        if self.param_type == 'TruncatedGaussian' :
+        if self.param_type.lower() == 'truncated-gaussian' :
             if upper is None or lower is None:
                 raise(ValueError, 'parameter __init__: upper and lower bounds are required for a TruncatedGaussian distribution!')
         
-        if self.param_type == 'Chebyshev' :
+        if self.param_type.lower() == 'chebyshev' :
             self.shape_parameter_A = -0.5
             self.shape_parameter_B = -0.5
             if upper is None or lower is None:
@@ -82,7 +82,7 @@ class Parameter(object):
 
         if data is not None:
             self.data = data
-            if self.param_type != 'Custom':
+            if self.param_type.lower() != 'custom':
                 raise(ValueError, 'parameter __init__: if data is provided then the custom distribution must be selected!')
         self.bounds = None
     def computeMean(self):
@@ -95,21 +95,32 @@ class Parameter(object):
             Mean of the parameter.
 
         """
-        if self.param_type == "Gaussian":
+        if self.param_type.lower() == "gaussian":
             mu = self.shape_parameter_A
-        elif self.param_type == "TruncatedGaussian":
-            mu = self.shape_parameter_A
-        elif self.param_type == "Exponential":
+        elif self.param_type.lower() == "truncated-gaussian" :
+            alpha = (self.lower - self.shape_parameter_A)/np.sqrt(self.shape_parameter_B)
+            beta = (self.upper - self.shape_parameter_A)/np.sqrt(self.shape_parameter_B)
+            phi_alpha = 1.0/(np.sqrt(2.0*np.pi)) * np.exp(-0.5*alpha**2)
+            phi_beta = 1.0/(np.sqrt(2.0*np.pi)) * np.exp(-0.5*beta**2)
+            # error functions : erf imported from scipy special
+            e_alpha = erf(alpha/np.sqrt(2.0))
+            e_beta = erf(beta/np.sqrt(2.0))
+            # cumulative distribution functions 
+            Phi_alpha = 0.5* (1 + e_alpha)
+            Phi_beta = 0.5* (1 + e_beta)
+            Z = (Phi_beta - Phi_alpha)
+            mu = self.shape_parameter_A + (phi_alpha - phi_beta)*np.sqrt(self.shape_parameter_B)/Z
+        elif self.param_type.lower() == "exponential":
             mu = 1.0/self.shape_parameter_A
-        elif self.param_type == "Cauchy":
+        elif self.param_type.lower() == "cauchy":
             mu = self.shape_parameter_A # technically the mean is undefined!
-        elif self.param_type == "Weibull":
+        elif self.param_type.lower() == "weibull":
             mu = self.shape_parameter_A * gamma(1.0 + 1.0/self.shape_parameter_B)
-        elif self.param_type == "Gamma":
+        elif self.param_type.lower() == "gamma":
             mu = self.shape_parameter_A * self.shape_parameter_B
-        elif self.param_type == "Chebyshev":
+        elif self.param_type.lower() == "chebyshev":
             mu = 0.5 * (self.lower + self.upper)
-        elif self.param_type == 'Custom':
+        elif self.param_type.lower() == 'custom':
             mu = np.mean(self.getSamples)
         return mu
     def getPDF(self, N):
@@ -136,7 +147,7 @@ class Parameter(object):
             x, y = analytical.PDF_CauchyDistribution(N, self.shape_parameter_A, self.shape_parameter_B)
         elif self.param_type.lower() == "uniform":
             x, y = analytical.PDF_UniformDistribution(N, self.lower, self.upper)
-        elif self.param_type.lower() == "truncatedGaussian":
+        elif self.param_type.lower() == "truncated-gaussian":
             x, y = analytical.PDF_TruncatedGaussianDistribution(N, self.shape_parameter_A, self.shape_parameter_B, self.lower, self.upper)
         elif self.param_type.lower() ==  "exponential":
             x, y = analytical.PDF_ExponentialDistribution(N, self.shape_parameter_A)
@@ -191,7 +202,7 @@ class Parameter(object):
             x, y = analytical.CDF_CauchyDistribution(N, self.shape_parameter_A, self.shape_parameter_B)
         elif self.param_type.lower() ==  "uniform":
             x, y = analytical.CDF_UniformDistribution(N, self.lower, self.upper)
-        elif self.param_type.lower() == "truncatedGaussian":
+        elif self.param_type.lower() == "truncated-gaussian":
             x, y = analytical.CDF_TruncatedGaussianDistribution(N, self.shape_parameter_A, self.shape_parameter_B, self.lower, self.upper)
         elif self.param_type.lower() ==  "exponential":
             x, y = analytical.CDF_ExponentialDistribution(N, self.shape_parameter_A)
@@ -224,7 +235,7 @@ class Parameter(object):
             y = analytical.iCDF_CauchyDistribution(x, self.shape_parameter_A, self.shape_parameter_B)
         elif self.param_type.lower() ==  "uniform":
             y = (x - .5) * (self.upper - self.lower) + (self.upper + self.lower)/2.0
-        elif self.param_type.lower() ==  "truncatedGaussian":
+        elif self.param_type.lower() ==  "truncated-gaussian":
             y = analytical.iCDF_TruncatedGaussianDistribution(x, self.shape_parameter_A, self.shape_parameter_B, self.lower, self.upper)
         elif self.param_type.lower() == "exponential":
             y = analytical.iCDF_ExponentialDistribution(x, self.shape_parameter_A)
