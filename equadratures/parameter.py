@@ -766,12 +766,12 @@ def recurrence_coefficients(self, order=None):
         self.bounds = [0.0, np.inf]
 
     # 7. Analytical Truncated Gaussian defined on [a,b]
-    elif (self.param_type.lower() == "truncated-gaussian") or (self.param_type.lower() == "truncated gaussian"):
+    elif self.param_type.lower() == "truncated-gaussian":
         mu = self.shape_parameter_A
-        sigma = np.sqrt(self.shape_parameter_B)
+        sigma_squared = self.shape_parameter_B
         a = self.lower
         b = self.upper
-        x, w  = analytical.PDF_TruncatedGaussianDistribution(N, mu, sigma, a, b)
+        x, w  = analytical.PDF_TruncatedGaussianDistribution(N, mu, sigma_squared, a, b)
         ab = custom_recurrence_coefficients(order, x, w)
         self.bounds = [self.lower, self.upper]
     

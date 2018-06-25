@@ -126,7 +126,7 @@ def iCDF_ChebyshevDistribution(xx, lower, upper):
                 yy.append(value)
                 break
     return yy
-def iCDF_TruncatedGaussianDistribution(xx, mu, sigma, a, b):
+def iCDF_TruncatedGaussianDistribution(xx, mu, sigma_squared, a, b):
     """
     An inverse truncated Gaussian cumulative density function.
 
@@ -143,10 +143,14 @@ def iCDF_TruncatedGaussianDistribution(xx, mu, sigma, a, b):
     :return:
         Inverse CDF samples associated with the truncated Gaussian distribution.
     """
-    yy = iCDF_Gaussian(xx, mu, sigma)
-    for i in range(0, len(xx)):
-        if(yy[i,0] < a or yy[i,0] > b):
-            yy[i,0] = 0
+    yy = []
+    [x, c] = CDF_TruncatedGaussianDistribution(1000, mu, sigma_squared, a, b)
+    for k in range(0, len(xx)):
+        for i in range(0, len(x)):
+            if ( (xx[k]>=c[i]) and (xx[k]<=c[i+1]) ):
+                value =  float( (xx[k]-c[i])/(c[i+1]-c[i])*(x[i+1]-x[i])+x[i] )
+                yy.append(value)
+                break
     return yy
 def iCDF_CustomDistribution(xx, data):
     """
@@ -214,7 +218,7 @@ def CDF_TruncatedGaussianDistribution(N, mu, sigma_squared, a, b):
         Cumulative density values along the support of the truncated Gaussian distribution.
     """
     def cumulative(x):
-        return 0.5 * (1 + erf(x/np.sqrt(2)))
+        return 0.5 * (1.0 + erf(x/np.sqrt(2.0)))
     x = np.linspace(a, b, N)
     zeta = (x - mu)/( np.sqrt(sigma_squared) )
     alpha = (a - mu)/( np.sqrt(sigma_squared) )
@@ -573,12 +577,15 @@ def PDF_TruncatedGaussianDistribution(N, mu, sigma_squared, a, b):
         Probability density values along the support of the truncated Gaussian distribution.
     """
     x = np.linspace(a, b, N)
-    w = 1.0/( np.sqrt(2 * sigma_squared * np.pi)) * np.exp(-(x - mu)**2 * 1.0/(2 * sigma_squared) )
-    w = 1.0/( np.sqrt(sigma_squared) ) * w
-    first_term = GaussianCDF(b, mu,  np.sqrt(sigma_squared) )
-    second_term = GaussianCDF(a, mu,  np.sqrt(sigma_squared) )
-    w = w / (first_term - second_term)
+    sigma = np.sqrt(sigma_squared)
+    zeta = (x - mu) / (sigma)
+    phi_zeta = 1.0 / np.sqrt(2 * np.pi)  * np.exp(-0.5 * zeta**2)
+    alpha = (a - mu) / (sigma)
+    beta = (b - mu) / (sigma)
+    Z = 0.5*(1.0 + erf(beta/np.sqrt(2.0) )) -  0.5*(1.0 + erf(alpha/np.sqrt(2.0)  ))
+    w = phi_zeta/(sigma * Z) 
     return x, w
+
 def GaussianCDF(constant, mu, sigma_squared):
     w = 1.0/2 * (1 + erf((constant - mu)/( np.sqrt(sigma_squared) * np.sqrt(2))) )
     return w
