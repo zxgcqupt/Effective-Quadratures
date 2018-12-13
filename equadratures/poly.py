@@ -12,7 +12,7 @@ class Poly(object):
         A basis selected for the multivariate polynomial.
 
     """
-    def __init__(self, parameters, basis):
+    def __init__(self, parameters, basis, task):
         try:
             len(parameters)
         except TypeError:
@@ -20,11 +20,41 @@ class Poly(object):
         self.parameters = parameters
         self.basis = basis
         self.dimensions = len(parameters)
+
+        # Tasks:
+        # 1. uncertainty quantification --> doe
+        # 2. dimension reduction --> doe
+        # 3. optimization --> doe
+        # 4. regression --> data 
+        # 5. read in old file
+
+        # DOE:
+        # 1. Sparse grid + adaptive + anisotropic # --> Do we really need it??
+        # 2. Tensor grid + adaptive + anisotropic
+        # 3. Least squares + adaptive + anisotropic
+        # 4. Compressive sensing + adaptive + anisotropic
+        # 
+
+        """
         self.orders = []
         for i in range(0, self.dimensions):
             self.orders.append(self.parameters[i].order)
         if not self.basis.orders :
             self.basis.setOrders(self.orders)
+        """
+
+    def readFile(polynomialFile):
+        """
+        Reads in a polynomial file
+        """
+        # to code!
+
+    def saveFile(polynomialFile):
+        """
+        Save all attributes in a file!
+        """
+        # does something
+    
 
     def __setCoefficients__(self, coefficients):
         """
@@ -37,11 +67,13 @@ class Poly(object):
 
         """
         self.coefficients = coefficients
+
     def __setBasis__(self, basisNew):
         """
         Sets the basis
         """
         self.basis = basisNew 
+
     def __setQuadrature__(self, quadraturePoints, quadratureWeights):
         """
         Sets the quadrature points and weights
@@ -55,6 +87,7 @@ class Poly(object):
         """
         self.quadraturePoints = quadraturePoints
         self.quadratureWeights = quadratureWeights
+
     def __setDesignMatrix__(self, designMatrix):
         """
         Sets the design matrix assocaited with the quadrature (depending on the technique) points and the polynomial basis.
@@ -66,6 +99,7 @@ class Poly(object):
 
         """
         self.designMatrix = designMatrix
+        
     def clone(self):
         """
         Clones a Poly object.
@@ -76,6 +110,7 @@ class Poly(object):
             A clone of the Poly object.
         """
         return type(self)(self.parameters, self.basis)
+
     def getPolynomial(self, stackOfPoints, customBases=None):
         """
         Evaluates the multivariate polynomial at a set of points.
@@ -118,6 +153,7 @@ class Poly(object):
                 temp = polynomial[i,:]
 
         return polynomial
+
     def getPolynomialGradient(self, stackOfPoints):
         """
         Evaluates the gradient of the multivariate polynomial at a set of points.
@@ -162,6 +198,7 @@ class Poly(object):
             R.append(polynomialgradient)
 
         return R
+
     def getTensorQuadratureRule(self, orders=None):
         """
         Generates a tensor grid quadrature rule based on the parameters in Poly.
@@ -203,6 +240,7 @@ class Poly(object):
 
         # Return tensor grid quad-points and weights
         return points, weights
+
     def getStatistics(self, light=None, max_sobol_order=None):
         """
         Creates an instance of the Statistics class.
@@ -218,7 +256,8 @@ class Poly(object):
             evals = self.getPolynomial(self.quadraturePoints)
             return Statistics(self.coefficients, self.basis, self.parameters, self.quadraturePoints, self.quadratureWeights, evals, max_sobol_order)
         else:
-            return Statistics(self.coefficients, self.basis, self.parameters, max_sobol_order=max_sobol_order)            
+            return Statistics(self.coefficients, self.basis, self.parameters, max_sobol_order=max_sobol_order)  
+
     def getQuadratureRule(self, options=None, number_of_points = None):
         """
         Generates quadrature points and weights.
@@ -253,6 +292,7 @@ class Poly(object):
         if options.lower() == 'tensor grid' or options.lower() == 'quadrature':
             p,w = self.getTensorQuadratureRule([i for i in self.basis.orders])
             return p,w
+
     def evaluatePolyFit(self, stackOfPoints):
         """
         Evaluates the the polynomial approximation of a function (or model data) at prescribed points.
@@ -287,6 +327,7 @@ class Poly(object):
         for i in range(0, self.dimensions):
             grads[i,:] = np.mat(self.coefficients).T * H[i]
         return grads
+
     def getPolyFitFunction(self):
         """
         Returns a callable polynomial approximation of a function (or model data).
@@ -298,6 +339,7 @@ class Poly(object):
 
         """
         return lambda (x): self.getPolynomial(x).T *  np.mat(self.coefficients)
+
     def getPolyGradFitFunction(self):
         """
         Returns a callable for the gradients of the polynomial approximation of a function (or model data).
@@ -309,6 +351,7 @@ class Poly(object):
 
         """
         return lambda (x) : self.evaluatePolyGradFit(x)
+
     def getFunctionSamples(self, number_of_samples):
         """
         Returns a set of function samples; useful for computing probabilities.
