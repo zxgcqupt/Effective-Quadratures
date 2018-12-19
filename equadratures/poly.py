@@ -1,18 +1,71 @@
 """The polynomial parent class."""
 import numpy as np
 from .stats import Statistics
-
+from .polycs import Polycs
+from .polylsq import Polyls 
+from .polyreg import Polyreg
+from .eqtools import savepoly
 class Poly(object):
     """
-    The class defines a Poly object. It is the parent class to Polyreg, Polyint and Polycs; the only difference between its children are the way in which the coefficients are computed. This class is defined by a list of Parameter objects and a Basis.
+    The class defines a Poly object. It is the parent class to Polyreg, Polyint, Polylsq and Polycs.
+    The main difference between these classes is the way they compute polynomial coefficients.
 
     :param Parameter parameters:
         A list of parameters.
     :param Basis basis:
         A basis selected for the multivariate polynomial.
+    :param string task:
+        A user-defined task and sub-task. The task is the action while the sub-task defines the strategy. If a sub-task is not selected, a default option is chosen.
+    :param function:
+        The function on which the task must be executed. 
+    :param gradfunction:
+        The gradient function to be used for executing the task, for e.g., in an optimization context we would use gradfunction to specifiy search directions.
+    :param string openfile
+        An .eq file that should be read in.
+    :param ndarray inputs
+        A numpy ndarray of inputs of size m x d, where m represents the number of evaluations and d the dimension of the problem---equivalent to the number of parameters.
+    :param ndarray outputs
+        A numpy ndarray of outputs of size m x k, where m represents the number of evaluations and k>=1 the size of each output vector. In the case where k=1, we have scalar valued outputs.
+    :param ndarray rankcorrrelation
+        A numpy ndarray corresponding to a d x d linear rank correlation matrix.
 
+    **Sample constructors**
+
+    # DIMENSION REDUCTION
+    myPoly = Poly(myParameters, myBasis, 'dimension-reduction:scalar', inputs,  outputs)
+    >> e, W = myPoly.getActiveSubspaces()
+    >> W = myPoly.getLinearModelSlope()
+    >> W = myPoly.getRidgeApproximation(n=2)
+    >> W = myPoly.getRidgeApproximation(n=1)
+    myPoly = Poly(myParameters, myBasis, 'dimension-reduction:vector', inputs,  outputs)
+
+    # UNCERTAINTY QUANTIFICATION
+    myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:least-squares', function)
+    myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:least-squares', function, gradfunction)
+    myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:compressed-sensing', function)
+    >> myStats = myPoly.getStatistics()
+    
+    # REGRESSION
+    myPoly = Poly(myParameters, myBasis, 'regression:pca', inputs, outputs)
+    myPoly = Poly(myParameters, myBasis, 'regression', inputs, outputs)
+    >> model = myPoly.getPolyFitFunction()
+    >> testing_outputs = model(training_inputs)
+
+    # NUMERICAL INTEGRATION
+    myPoly = Poly(myParameters, myBasis, 'numerical-integration:sparse-grids', function)
+    myPoly = Poly(myParameters, myBasis, 'numerical-integration:near-optimal', function)
+    >> points, weights = myPoly.getIntegrationPointsandWeights()
+    >> integral = myPoly.getIntegral()
+
+    # OPTIMIZATION
+    myPoly = Poly(myParameters, 'optimize:polymin', function)
+    myPoly = Poly(myParameters, 'optimize:sd', inputs, outputs)
+    
+    # I/O
+    myPoly.save('myPoly.eq')
+    myPoly = Poly(openfile='myPoly.eq')
     """
-    def __init__(self, parameters, basis, task):
+    def __init__(self, parameters, basis=None, task=None, inputs=None, outputs=None, function=None, gradfunction=None, rankcorrrelation=None, openfile=None):
         try:
             len(parameters)
         except TypeError:
@@ -20,64 +73,37 @@ class Poly(object):
         self.parameters = parameters
         self.basis = basis
         self.dimensions = len(parameters)
-
-        # Tasks:
-        # 1. uncertainty quantification --> doe
-        # 2. dimension reduction --> doe
-        # 3. optimization --> doe
-        # 4. regression --> data 
-        # 5. read in old file
-
-        # DOE:
-        # 1. Sparse grid + adaptive + anisotropic # --> Do we really need it??
-        # 2. Tensor grid + adaptive + anisotropic
-        # 3. Least squares + adaptive + anisotropic
-        # 4. Compressive sensing + adaptive + anisotropic
-        # 
-
-        """
         self.orders = []
         for i in range(0, self.dimensions):
             self.orders.append(self.parameters[i].order)
         if not self.basis.orders :
             self.basis.setOrders(self.orders)
+    def save(self, filename):
         """
-
-    def readFile(polynomialFile):
+        Saves a .eq file with all particulars about the polynomial. 
+        :param Poly self:
+            An instance of the Poly class.
+        :param string filename:
+            Filename to be used for saving.
         """
-        Reads in a polynomial file
-        """
-        # to code!
-
-    def saveFile(polynomialFile):
-        """
-        Save all attributes in a file!
-        """
-        # does something
-    
-
+        savepoly(self)
     def __setCoefficients__(self, coefficients):
         """
         Sets the coefficients for polynomial. This function will be called by the children of Poly
-
         :param Poly self:
             An instance of the Poly class.
         :param array coefficients:
             An array of the coefficients computed using either integration, least squares or compressive sensing routines.
-
         """
         self.coefficients = coefficients
-
     def __setBasis__(self, basisNew):
         """
         Sets the basis
         """
         self.basis = basisNew 
-
     def __setQuadrature__(self, quadraturePoints, quadratureWeights):
         """
         Sets the quadrature points and weights
-
         :param Poly self:
             An instance of the Poly class.
         :param matrix quadraturePoints:
@@ -87,40 +113,33 @@ class Poly(object):
         """
         self.quadraturePoints = quadraturePoints
         self.quadratureWeights = quadratureWeights
-
     def __setDesignMatrix__(self, designMatrix):
         """
         Sets the design matrix assocaited with the quadrature (depending on the technique) points and the polynomial basis.
-
         :param Poly self:
             An instance of the Poly class.
         :param matrix designMatrix:
             A numpy matrix filled with the multivariate polynomial evaluated at the quadrature points.
-
         """
         self.designMatrix = designMatrix
-        
     def clone(self):
         """
         Clones a Poly object.
-
         :param Poly self:
             An instance of the Poly class.
         :return:
             A clone of the Poly object.
         """
         return type(self)(self.parameters, self.basis)
-
     def getPolynomial(self, stackOfPoints, customBases=None):
         """
-        Evaluates the multivariate polynomial at a set of points.
-
+        Evaluates the value of each polynomial basis function at a set of points.
         :param Poly self:
             An instance of the Poly class.
         :param matrix stackOfPoints:
-            A N-by-d matrix of points along which the multivarite (in d-dimensions) polynomial must be evaluated.
+            A N-by-d matrix of points along which the multivariate (in d-dimensions) polynomial basis functions must be evaluated.
         :return:
-            A N-by-1 matrix of polynomial evaluations at the stackOfPoints.
+            A P-by-N matrix of polynomial basis function evaluations at the stackOfPoints, where P is the cardinality of the basis.
         """
         if customBases is None:
             basis = self.basis.elements
@@ -131,8 +150,7 @@ class Poly(object):
         if stackOfPoints.ndim == 1:
             no_of_points = 1
         else:
-            no_of_points, __ = stackOfPoints.shape 
-        polynomial = np.zeros((basis_entries, no_of_points))
+            no_of_points, __ = stackOfPoints.shape
         p = {}
 
         # Save time by returning if univariate!
@@ -146,24 +164,24 @@ class Poly(object):
                 p[i] , _ = self.parameters[i]._getOrthoPoly(stackOfPoints[:,i], int(np.max(basis[:,i])) )
 
         # One loop for polynomials
-        for i in range(0, basis_entries):
-            temp = np.ones((1, no_of_points))
-            for k in range(0, dimensions):
-                polynomial[i,:] = p[k][int(basis[i,k])] * temp
-                temp = polynomial[i,:]
+        polynomial = np.ones((basis_entries, no_of_points))
+        for k in range(dimensions):
+            basis_entries_this_dim = basis[:, k].astype(int)
+            polynomial *= p[k][basis_entries_this_dim]
 
         return polynomial
-
-    def getPolynomialGradient(self, stackOfPoints):
+    def getPolynomialGradient(self, stackOfPoints, dim_index = None):
         """
-        Evaluates the gradient of the multivariate polynomial at a set of points.
-
+        Evaluates the gradient for each of the polynomial basis functions at a set of points,
+        with respect to each input variable.
         :param Poly self:
             An instance of the Poly class.
         :param matrix stackOfPoints:
-            A N-by-d matrix of points along which the multivarite (in d-dimensions) polynomial must be evaluated.
+            A N-by-d matrix of points along which the gradient of the multivariate (in d-dimensions) polynomial basis
+            functions must be evaluated.
         :return:
-            A list with d elements, each with a N-by-1 matrix of polynomial evaluations at the stackOfPoints.
+            A list with d elements, each with a P-by-N matrix of polynomial evaluations at the stackOfPoints,
+            where P is the cardinality of the basis.
         """
         # "Unpack" parameters from "self"
         basis = self.basis.elements
@@ -180,29 +198,29 @@ class Poly(object):
             for i in range(0, dimensions):
                 if len(stackOfPoints.shape) == 1:
                     stackOfPoints = np.array([stackOfPoints])
-                p[i] , dp[i] = self.parameters[i]._getOrthoPoly(stackOfPoints[:,i], int(np.max(basis[:,i]) + 1 ) )
+                p[i] , dp[i] = self.parameters[i]._getOrthoPoly(stackOfPoints[:,i], int(np.max(basis[:,i])) )
 
         # One loop for polynomials
         R = []
-        for v in range(0, dimensions):
-            gradDirection = v
-            polynomialgradient = np.zeros((basis_entries, no_of_points))
-            for i in range(0, basis_entries):
-                temp = np.ones((1, no_of_points))
-                for k in range(0, dimensions):
-                    if k == gradDirection:
-                        polynomialgradient[i,:] = dp[k][int(basis[i,k])] * temp
+        if dim_index is None:
+            dim_index = range(dimensions)
+        for v in range(dimensions):
+            if not(v in dim_index):
+                R.append(np.zeros((basis_entries, no_of_points)))
+            else:
+                polynomialgradient = np.ones((basis_entries, no_of_points))
+                for k in range(dimensions):
+                    basis_entries_this_dim = basis[:,k].astype(int)
+                    if k==v:
+                        polynomialgradient *= dp[k][basis_entries_this_dim]
                     else:
-                        polynomialgradient[i,:] = p[k][int(basis[i,k])] * temp
-                    temp = polynomialgradient[i,:]
-            R.append(polynomialgradient)
+                        polynomialgradient *= p[k][basis_entries_this_dim]
+                R.append(polynomialgradient)
 
         return R
-
     def getTensorQuadratureRule(self, orders=None):
         """
         Generates a tensor grid quadrature rule based on the parameters in Poly.
-
         :param Poly self:
             An instance of the Poly class.
         :param list orders:
@@ -240,11 +258,9 @@ class Poly(object):
 
         # Return tensor grid quad-points and weights
         return points, weights
-
     def getStatistics(self, light=None, max_sobol_order=None):
         """
         Creates an instance of the Statistics class.
-
         :param Poly self:
             An instance of the Poly class.
         :param string quadratureRule:
@@ -256,12 +272,10 @@ class Poly(object):
             evals = self.getPolynomial(self.quadraturePoints)
             return Statistics(self.coefficients, self.basis, self.parameters, self.quadraturePoints, self.quadratureWeights, evals, max_sobol_order)
         else:
-            return Statistics(self.coefficients, self.basis, self.parameters, max_sobol_order=max_sobol_order)  
-
+            return Statistics(self.coefficients, self.basis, self.parameters, max_sobol_order=max_sobol_order)            
     def getQuadratureRule(self, options=None, number_of_points = None):
         """
         Generates quadrature points and weights.
-
         :param Poly self:
             An instance of the Poly class.
         :param string options:
@@ -292,11 +306,9 @@ class Poly(object):
         if options.lower() == 'tensor grid' or options.lower() == 'quadrature':
             p,w = self.getTensorQuadratureRule([i for i in self.basis.orders])
             return p,w
-
     def evaluatePolyFit(self, stackOfPoints):
         """
         Evaluates the the polynomial approximation of a function (or model data) at prescribed points.
-
         :param Poly self:
             An instance of the Poly class.
         :param matrix stackOfPoints:
@@ -305,20 +317,16 @@ class Poly(object):
             A 1-by-N matrix of the polynomial approximation.
         """
         return self.getPolynomial(stackOfPoints).T *  np.mat(self.coefficients)
-
     def evaluatePolyGradFit(self, stackOfPoints):
         """
         Evaluates the gradient of the polynomial approximation of a function (or model data) at prescribed points.
-
         :param Poly self:
             An instance of the Poly class.
         :param matrix stackOfPoints:
             A N-by-d matrix of points (can be unscaled) at which the polynomial gradient must be evaluated at.
         :return:
             A d-by-N matrix of the gradients of the polynomial approximation.
-
         **Notes:**
-
         This function should not be confused with getPolynomialGradient(). The latter is only concerned with approximating what the multivariate polynomials
         gradient values are at prescribed points.
         """
@@ -327,35 +335,27 @@ class Poly(object):
         for i in range(0, self.dimensions):
             grads[i,:] = np.mat(self.coefficients).T * H[i]
         return grads
-
     def getPolyFitFunction(self):
         """
         Returns a callable polynomial approximation of a function (or model data).
-
         :param Poly self:
             An instance of the Poly class.
         :return:
             A callable function.
-
         """
         return lambda (x): self.getPolynomial(x).T *  np.mat(self.coefficients)
-
     def getPolyGradFitFunction(self):
         """
         Returns a callable for the gradients of the polynomial approximation of a function (or model data).
-
         :param Poly self:
             An instance of the Poly class.
         :return:
             A callable function.
-
         """
         return lambda (x) : self.evaluatePolyGradFit(x)
-
     def getFunctionSamples(self, number_of_samples):
         """
         Returns a set of function samples; useful for computing probabilities.
-
         :param Poly self:
             An instance of the Poly class.
         :param callable function:
@@ -366,7 +366,6 @@ class Poly(object):
             A K-by-d matrix of the index set.
         :return:
             A 50000-by-1 array of function evaluations.
-
         """
         dimensions = self.dimensions
         if number_of_samples is None:
