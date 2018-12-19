@@ -4,7 +4,10 @@ from .stats import Statistics
 from .polycs import Polycs
 from .polylsq import Polyls 
 from .polyreg import Polyreg
-from .eqtools import savepoly
+from .eqxmltools import savepoly
+from .eqxmltools import openpoly
+from .eqtextools import compileReport # check out pylatex!
+
 class Poly(object):
     """
     The class defines a Poly object. It is the parent class to Polyreg, Polyint, Polylsq and Polycs.
@@ -43,6 +46,7 @@ class Poly(object):
     myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:least-squares', function)
     myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:least-squares', function, gradfunction)
     myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:compressed-sensing', function)
+    myPoly = Poly(myParameters, myBasis, 'uncertainty-quantification:least-squares', function, rankcorrelation)
     >> myStats = myPoly.getStatistics()
     
     # REGRESSION
@@ -64,6 +68,8 @@ class Poly(object):
     # I/O
     myPoly.save('myPoly.eq')
     myPoly = Poly(openfile='myPoly.eq')
+    myPoly.compileReport()
+
     """
     def __init__(self, parameters, basis=None, task=None, inputs=None, outputs=None, function=None, gradfunction=None, rankcorrrelation=None, openfile=None):
         try:
@@ -78,6 +84,11 @@ class Poly(object):
             self.orders.append(self.parameters[i].order)
         if not self.basis.orders :
             self.basis.setOrders(self.orders)
+        
+
+        # Once the basic stuff has been specified. The code needs to compute coefficients, obviously the strategy will be
+        # different depending on the problem. 
+
     def save(self, filename):
         """
         Saves a .eq file with all particulars about the polynomial. 
@@ -86,7 +97,7 @@ class Poly(object):
         :param string filename:
             Filename to be used for saving.
         """
-        savepoly(self)
+        savepoly(self, filename)
     def __setCoefficients__(self, coefficients):
         """
         Sets the coefficients for polynomial. This function will be called by the children of Poly
